@@ -1,2 +1,3 @@
 *.Rmd linguist-detectable
-*.Rmd linguist-language=R
+*.html linguist-detectable=false
+day14.Rmd linguist-language=R
