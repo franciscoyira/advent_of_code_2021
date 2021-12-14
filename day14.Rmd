@@ -1,0 +1,184 @@
+---
+title: "Advent of Code (Day 14 - 2021)"
+author: "Francisco Yirá Albornoz Cambiaso"
+date: "14-12-2021"
+output: rmdformats::downcute
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(testthat)
+```
+
+
+## Description of the problem
+https://adventofcode.com/2021/day/14
+
+## Load input
+```{r}
+template <- "OHFNNCKCVOBHSSHONBNF"
+rules_str <- read_file(here("day14_input", "rules.txt"))
+```
+
+
+## Proof of concept
+```{r}
+# Create two vectors: 1
+# 1) with strings to find
+# 2) with strings to insert
+vector_rules <- 
+  str_split(rules_str, "\r\n") %>% 
+  unlist()
+
+vector_rules
+```
+```{r}
+list_rules <- 
+  vector_rules %>%
+  str_split(" -> ")
+
+list_rules[1:5]
+```
+
+```{r}
+input_strings <- 
+  list_rules %>% map(1) %>% unlist()
+
+input_strings
+```
+```{r}
+to_insert_strings <- 
+  list_rules %>% map(2) %>% unlist()
+
+to_insert_strings
+```
+```{r}
+list_replacement <- 
+  as.list(to_insert_strings) %>% 
+  set_names(input_strings)
+
+list_replacement[1:5]
+```
+Proof of concept:
+```{r}
+list_replacement["SV"]
+```
+Now iterate over the input (`template`) to apply the insertion rules:
+```{r}
+new_string <- str_sub(template, 1, 1)
+
+for (i in seq(str_length(template)-1)) {
+  sub_string <- template %>% str_sub(i, i+1)
+  
+  # Extract the string to insert from `list_replacement`
+  # And skip if it doesn't exist
+  string_to_insert <- list_replacement[[sub_string]]
+  if (is.null(string_to_insert)) next
+  
+  new_string <- paste0(new_string,
+                       string_to_insert,
+                       str_sub(template, i+1, i+1))
+}
+
+new_string
+```
+
+It seems good as a proof of concept, but some validation is necessary.
+
+## Testing
+First, let's create functions to parametrize what I've done until now:
+```{r create_list_pair_insertion}
+create_list_pair_insertion <- function(filename_rules) {
+  rules_str <- read_file(filename_rules)
+  
+  vector_rules <-
+    str_split(rules_str, "\r\n") %>%
+    unlist()
+  
+  list_rules <-
+    vector_rules %>%
+    str_split(" -> ")
+  
+  input_strings <-
+    list_rules %>% map(1) %>% unlist()
+  
+  to_insert_strings <-
+    list_rules %>% map(2) %>% unlist()
+  
+  list_replacement <-
+    as.list(to_insert_strings) %>%
+    set_names(input_strings)
+  
+  list_replacement
+  
+}
+```
+
+```{r pair_insertion}
+pair_insertion <- function(template, list_pair_insertion) {
+  new_string <- str_sub(template, 1, 1)
+  
+  for (i in seq(str_length(template) - 1)) {
+    sub_string <- template %>% str_sub(i, i + 1)
+    
+    string_to_insert <- list_pair_insertion[[sub_string]]
+    if (is.null(string_to_insert)) next
+    
+    new_string <- paste0(new_string,
+                         string_to_insert,
+                         str_sub(template, i + 1, i + 1))
+  }
+  
+  new_string
+}
+```
+
+Now a unit test using example posted in the instructions:
+```{r}
+test_that("Function pair_insertion produces correct answers",
+          {
+            list_example <- create_list_pair_insertion(here("day14_input",
+                                                            "rules_example.txt"))
+            
+            insertion1 <- pair_insertion("NNCB", list_example)
+            expect_equal(insertion1, "NCNBCHB")
+            
+            insertion2 <- pair_insertion(insertion1, list_example)
+            expect_equal(insertion2, "NBCCNBBBCBHCB")
+            
+            insertion3 <- pair_insertion(insertion2, list_example)
+            expect_equal(insertion3, "NBBBCNCCNBBNBNBBCHBHHBCHB")
+            
+            insertion4 <- pair_insertion(insertion3, list_example)
+            expect_equal(insertion4, "NBBNBNBBCCNBCNCCNBBNBBNBBBNBBNBBCBHCBHHNHCBBCBHCB")
+          })
+```
+## Solution Part 1
+Now I can (confidently) repeat the insertion 10 times on the puzzle input:
+```{r}
+result <- template
+for (i in 1:10) {
+  result <- pair_insertion(result, list_replacement)
+}
+```
+
+Now count frequency of elements:
+```{r}
+df_count_elements <- 
+  tibble(LETTERS,
+       count= str_count(result, LETTERS)) %>% 
+  filter(count!=0) %>% 
+  arrange(desc(count))
+
+df_count_elements
+```
+
+Doing the substraction:
+```{r}
+counts <- df_count_elements[["count"]]
+
+counts[1] - counts[length(counts)]
+```
+[ ] TODO: optimize the function in order to be performant enough to do 40 steps.
+
